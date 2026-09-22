@@ -1,7 +1,5 @@
 package com.jsp.dto;
 
-import java.math.BigDecimal;
-
 import com.jsp.enums.PaymentMode;
 
 public class PaymentRequestDto {

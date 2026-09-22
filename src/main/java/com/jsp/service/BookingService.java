@@ -16,5 +16,7 @@ public interface BookingService  {
 	    BookingResponseDto updateBooking(Integer id, BookingRequestDto bookingRequestDto);
 
 	    void deleteBooking(Integer id);
+	    
+	    BookingResponseDto cancelBooking(Integer id);
 
 }

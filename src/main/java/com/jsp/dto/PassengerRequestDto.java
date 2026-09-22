@@ -4,6 +4,8 @@ import com.jsp.enums.Gender;
 
 public class PassengerRequestDto {
 
+	private Integer id;
+	
 	private String name;
 
     private Integer age;
@@ -13,6 +15,14 @@ public class PassengerRequestDto {
     private String contactNumber;
 
     private String seatNumber;
+
+	public Integer getId() {
+		return id;
+	}
+
+	public void setId(Integer id) {
+		this.id = id;
+	}
 
 	public String getName() {
 		return name;

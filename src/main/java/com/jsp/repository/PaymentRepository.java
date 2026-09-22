@@ -6,4 +6,5 @@ import com.jsp.entity.Payment;
 
 public interface PaymentRepository extends JpaRepository<Payment, Integer>{
 
+	boolean existsByBooking_Id(Integer bookingId);
 }
