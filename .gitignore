@@ -31,3 +31,12 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### React Frontend ###
+/frontend/node_modules/
+/frontend/dist/
+
+### Environment Variables ###
+.env
+.env.*
+!.env.example
