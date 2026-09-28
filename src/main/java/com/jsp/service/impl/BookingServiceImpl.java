@@ -44,33 +44,26 @@ public class BookingServiceImpl implements BookingService {
 	public BookingResponseDto createBooking(BookingRequestDto bookingRequestDto) {
 		// TODO Auto-generated method stub
 		Flight flight = flightRepository.findById(bookingRequestDto.getFlightId())
-		        .orElseThrow(() -> new ResourceNotFoundException(
-		                "Flight with id " + bookingRequestDto.getFlightId() + " not found"));
-       
-		if (bookingRequestDto.getPassengers() == null
-		        || bookingRequestDto.getPassengers().isEmpty()) {
+				.orElseThrow(() -> new ResourceNotFoundException(
+						"Flight with id " + bookingRequestDto.getFlightId() + " not found"));
 
-		    throw new IllegalArgumentException(
-		            "Booking must contain at least one passenger");
+		if (bookingRequestDto.getPassengers() == null || bookingRequestDto.getPassengers().isEmpty()) {
+
+			throw new IllegalArgumentException("Booking must contain at least one passenger");
 		}
-		
+
 		if (bookingRequestDto.getPassengers().size() > flight.getTotalSeats()) {
-		    throw new IllegalArgumentException(
-		            "Number of passengers exceeds available seats");
+			throw new IllegalArgumentException("Number of passengers exceeds available seats");
 		}
-		
-		long alreadyBookedSeats =
-		        passengerRepository.countByBooking_Flight_Id(
-		                bookingRequestDto.getFlightId());
 
-		long availableSeats =
-		        flight.getTotalSeats() - alreadyBookedSeats;
+		long alreadyBookedSeats = passengerRepository
+				.countByBooking_Flight_IdAndBooking_StatusNot(bookingRequestDto.getFlightId(), BookingStatus.CANCELLED);
+		long availableSeats = flight.getTotalSeats() - alreadyBookedSeats;
 
 		if (bookingRequestDto.getPassengers().size() > availableSeats) {
-		    throw new IllegalArgumentException(
-		            "Not enough seats available for this flight");
+			throw new IllegalArgumentException("Not enough seats available for this flight");
 		}
-		
+
 		Booking booking = new Booking();
 		booking.setFlight(flight);
 		booking.setStatus(BookingStatus.PENDING);
@@ -79,50 +72,33 @@ public class BookingServiceImpl implements BookingService {
 		Set<String> bookedSeats = new HashSet<>();
 
 		for (PassengerRequestDto passengerRequestDto : bookingRequestDto.getPassengers()) {
-			
-			if (passengerRequestDto.getName() == null
-			        || passengerRequestDto.getName().isBlank()) {
-			    throw new IllegalArgumentException(
-			            "Passenger name cannot be empty");
+
+			if (passengerRequestDto.getName() == null || passengerRequestDto.getName().isBlank()) {
+				throw new IllegalArgumentException("Passenger name cannot be empty");
 			}
-			
-			if (passengerRequestDto.getAge() == null
-			        || passengerRequestDto.getAge() <= 0) {
-			    throw new IllegalArgumentException(
-			            "Passenger age must be greater than 0");
+
+			if (passengerRequestDto.getAge() == null || passengerRequestDto.getAge() <= 0) {
+				throw new IllegalArgumentException("Passenger age must be greater than 0");
 			}
-			
+
 			if (passengerRequestDto.getGender() == null) {
-			    throw new IllegalArgumentException(
-			            "Passenger gender cannot be null");
+				throw new IllegalArgumentException("Passenger gender cannot be null");
 			}
-			
+
 			if (passengerRequestDto.getContactNumber() == null
-			        || passengerRequestDto.getContactNumber().isBlank()) {
-			    throw new IllegalArgumentException(
-			            "Passenger contact number cannot be empty");
+					|| !passengerRequestDto.getContactNumber().matches("\\d{10}")) {
+				throw new IllegalArgumentException("Contact number must contain exactly 10 digits");
 			}
-			
-			if (!passengerRequestDto.getContactNumber().matches("\\d{10}")) {
-			    throw new IllegalArgumentException(
-			            "Passenger contact number must contain exactly 10 digits");
-			}
-			
-			if (passengerRequestDto.getSeatNumber() == null
-			        || passengerRequestDto.getSeatNumber().isBlank()) {
-			    throw new IllegalArgumentException(
-			            "Passenger seat number cannot be empty");
-			}
-			
+
+			validateSeatNumber(passengerRequestDto.getSeatNumber(), flight.getTotalSeats());
+
 			if (!bookedSeats.add(passengerRequestDto.getSeatNumber())) {
-			    throw new SeatAlreadyBookedException(
-			            "Seat " + passengerRequestDto.getSeatNumber()
-			            + " is already assigned in this booking");
+				throw new SeatAlreadyBookedException(
+						"Seat " + passengerRequestDto.getSeatNumber() + " is already assigned in this booking");
 			}
 
-			boolean seatAlreadyBooked = passengerRepository.existsByBooking_Flight_IdAndSeatNumber(
-					bookingRequestDto.getFlightId(), passengerRequestDto.getSeatNumber());
-
+			boolean seatAlreadyBooked = passengerRepository.existsByBooking_Flight_IdAndSeatNumberAndBooking_StatusNot(
+					bookingRequestDto.getFlightId(), passengerRequestDto.getSeatNumber(), BookingStatus.CANCELLED);
 			if (seatAlreadyBooked) {
 				throw new SeatAlreadyBookedException(
 						"Seat " + passengerRequestDto.getSeatNumber() + " is already booked for this flight");
@@ -202,8 +178,7 @@ public class BookingServiceImpl implements BookingService {
 		// TODO Auto-generated method stub
 
 		Booking booking = bookingRepository.findById(id)
-		        .orElseThrow(() -> new ResourceNotFoundException(
-		                "Booking with id " + id + " not found"));
+				.orElseThrow(() -> new ResourceNotFoundException("Booking with id " + id + " not found"));
 
 		BookingResponseDto responseDto = new BookingResponseDto();
 
@@ -331,115 +306,83 @@ public class BookingServiceImpl implements BookingService {
 	public BookingResponseDto updateBooking(Integer id, BookingRequestDto bookingRequestDto) {
 		// TODO Auto-generated method stub
 
-		
 		Booking booking = bookingRepository.findById(id)
-		        .orElseThrow(() -> new ResourceNotFoundException(
-		                "Booking with id " + id + " not found"));
-		
+				.orElseThrow(() -> new ResourceNotFoundException("Booking with id " + id + " not found"));
+
 		if (booking.getStatus() == BookingStatus.CANCELLED) {
-		    throw new IllegalArgumentException(
-		            "Cancelled booking cannot be updated");
+			throw new IllegalArgumentException("Cancelled booking cannot be updated");
 		}
-		
 
 		Flight flight = flightRepository.findById(bookingRequestDto.getFlightId())
-		        .orElseThrow(() -> new ResourceNotFoundException(
-		                "Flight with id " + bookingRequestDto.getFlightId() + " not found"));
-		
-		
-		if (bookingRequestDto.getPassengers() == null
-		        || bookingRequestDto.getPassengers().isEmpty()) {
-		    throw new IllegalArgumentException(
-		            "Booking must contain at least one passenger");
-		}
-		
-		long alreadyBookedByOthers =
-		        passengerRepository.countByBooking_Flight_IdAndBooking_IdNot(
-		                bookingRequestDto.getFlightId(), id);
+				.orElseThrow(() -> new ResourceNotFoundException(
+						"Flight with id " + bookingRequestDto.getFlightId() + " not found"));
 
-		long availableSeats =
-		        flight.getTotalSeats() - alreadyBookedByOthers;
+		if (bookingRequestDto.getPassengers() == null || bookingRequestDto.getPassengers().isEmpty()) {
+			throw new IllegalArgumentException("Booking must contain at least one passenger");
+		}
+
+		long alreadyBookedByOthers = passengerRepository.countByBooking_Flight_IdAndBooking_IdNotAndBooking_StatusNot(
+				bookingRequestDto.getFlightId(), id, BookingStatus.CANCELLED);
+		long availableSeats = flight.getTotalSeats() - alreadyBookedByOthers;
 
 		if (bookingRequestDto.getPassengers().size() > availableSeats) {
-		    throw new IllegalArgumentException(
-		            "Not enough seats available for this flight");
+			throw new IllegalArgumentException("Not enough seats available for this flight");
 		}
-		
+
 		booking.setFlight(flight);
 
-	
 		Set<String> bookedSeats = new HashSet<>();
 
 		for (PassengerRequestDto passengerRequestDto : bookingRequestDto.getPassengers()) {
-				
-			
-			
-			if (passengerRequestDto.getName() == null
-			        || passengerRequestDto.getName().isBlank()) {
-			    throw new IllegalArgumentException(
-			            "Passenger name cannot be empty");
-			}
-			
-			if (passengerRequestDto.getAge() == null
-			        || passengerRequestDto.getAge() <= 0) {
-			    throw new IllegalArgumentException(
-			            "Passenger age must be greater than 0");
-			}
-			
-			 if (passengerRequestDto.getGender() == null) {
-		            throw new IllegalArgumentException(
-		                    "Passenger gender cannot be null");
-			 }
-			 
-			 // 8. Contact validation
-		        if (passengerRequestDto.getContactNumber() == null
-		                || passengerRequestDto.getContactNumber().isBlank()) {
-		            throw new IllegalArgumentException(
-		                    "Passenger contact number cannot be empty");
-		        }
-		        
-		        // 9. Contact format validation
-		        if (!passengerRequestDto.getContactNumber().matches("\\d{10}")) {
-		            throw new IllegalArgumentException(
-		                    "Passenger contact number must contain exactly 10 digits");
-		        }
-		        
-		     // 10. Seat validation
-		        if (passengerRequestDto.getSeatNumber() == null
-		                || passengerRequestDto.getSeatNumber().isBlank()) {
-		            throw new IllegalArgumentException(
-		                    "Passenger seat number cannot be empty");
-		        }
 
-		    // 1. Check duplicate inside THIS request
-			if (!bookedSeats.add(passengerRequestDto.getSeatNumber())) {
-			    throw new SeatAlreadyBookedException(
-			            "Seat " + passengerRequestDto.getSeatNumber()
-			            + " is already assigned in this booking");
+			if (passengerRequestDto.getName() == null || passengerRequestDto.getName().isBlank()) {
+				throw new IllegalArgumentException("Passenger name cannot be empty");
 			}
-			  // 2. Check duplicate against OTHER bookings
-			boolean seatAlreadyBooked =
-			        passengerRepository
-			                .existsByBooking_Flight_IdAndSeatNumberAndBooking_IdNot(
-			                        bookingRequestDto.getFlightId(),
-			                        passengerRequestDto.getSeatNumber(),
-			                        id);
+
+			if (passengerRequestDto.getAge() == null || passengerRequestDto.getAge() <= 0) {
+				throw new IllegalArgumentException("Passenger age must be greater than 0");
+			}
+
+			if (passengerRequestDto.getGender() == null) {
+				throw new IllegalArgumentException("Passenger gender cannot be null");
+			}
+
+			// 8. Contact validation
+			if (passengerRequestDto.getContactNumber() == null || passengerRequestDto.getContactNumber().isBlank()) {
+				throw new IllegalArgumentException("Passenger contact number cannot be empty");
+			}
+
+			// 9. Contact format validation
+			if (!passengerRequestDto.getContactNumber().matches("\\d{10}")) {
+				throw new IllegalArgumentException("Passenger contact number must contain exactly 10 digits");
+			}
+
+			// 10. Seat validation
+			validateSeatNumber(passengerRequestDto.getSeatNumber(), flight.getTotalSeats());
+
+			// 1. Check duplicate inside THIS request
+			if (!bookedSeats.add(passengerRequestDto.getSeatNumber())) {
+				throw new SeatAlreadyBookedException(
+						"Seat " + passengerRequestDto.getSeatNumber() + " is already assigned in this booking");
+			}
+			// 2. Check duplicate against OTHER bookings
+			boolean seatAlreadyBooked = passengerRepository
+					.existsByBooking_Flight_IdAndSeatNumberAndBooking_IdNotAndBooking_StatusNot(
+							bookingRequestDto.getFlightId(), passengerRequestDto.getSeatNumber(), id,
+							BookingStatus.CANCELLED);
 
 			if (seatAlreadyBooked) {
-			    throw new SeatAlreadyBookedException(
-			            "Seat " + passengerRequestDto.getSeatNumber()
-			            + " is already booked for this flight");
+				throw new SeatAlreadyBookedException(
+						"Seat " + passengerRequestDto.getSeatNumber() + " is already booked for this flight");
 			}
-			
-		    // 3. Find existing passenger
 
-			Passenger passenger = passengerRepository
-			        .findByIdAndBooking_Id(passengerRequestDto.getId(), id)
-			        .orElseThrow(() -> new ResourceNotFoundException(
-			                "Passenger with id " + passengerRequestDto.getId()
-			                + " not found in booking " + id));
+			// 3. Find existing passenger
 
-		     // 4. Update existing passenger
+			Passenger passenger = passengerRepository.findByIdAndBooking_Id(passengerRequestDto.getId(), id)
+					.orElseThrow(() -> new ResourceNotFoundException(
+							"Passenger with id " + passengerRequestDto.getId() + " not found in booking " + id));
+
+			// 4. Update existing passenger
 			passenger.setName(passengerRequestDto.getName());
 
 			passenger.setAge(passengerRequestDto.getAge());
@@ -450,13 +393,10 @@ public class BookingServiceImpl implements BookingService {
 
 			passenger.setSeatNumber(passengerRequestDto.getSeatNumber());
 
-			  // 5. Save passenger
+			// 5. Save passenger
 			passengerRepository.save(passenger);
 
-		
 		}
-
-	
 
 		Booking updatedBooking = bookingRepository.save(booking);
 
@@ -467,15 +407,12 @@ public class BookingServiceImpl implements BookingService {
 	public void deleteBooking(Integer id) {
 		// TODO Auto-generated method stub
 		Booking booking = bookingRepository.findById(id)
-		        .orElseThrow(() -> new ResourceNotFoundException(
-		                "Booking with id " + id + " not found"));
-		
-		 if (booking.getPayment() != null
-		            && booking.getPayment().getPaymentStatus() == PaymentStatus.SUCCESS) {
-		        throw new IllegalArgumentException(
-		                "Confirmed booking cannot be deleted");
-		    }
-		 
+				.orElseThrow(() -> new ResourceNotFoundException("Booking with id " + id + " not found"));
+
+		if (booking.getPayment() != null && booking.getPayment().getPaymentStatus() == PaymentStatus.SUCCESS) {
+			throw new IllegalArgumentException("Confirmed booking cannot be deleted");
+		}
+
 		bookingRepository.deleteById(id);
 	}
 
@@ -541,26 +478,63 @@ public class BookingServiceImpl implements BookingService {
 	@Override
 	public BookingResponseDto cancelBooking(Integer id) {
 		// TODO Auto-generated method stub
-		 Booking booking = bookingRepository.findById(id)
-		            .orElseThrow(() -> new ResourceNotFoundException(
-		                    "Booking with id " + id + " not found"));
+		Booking booking = bookingRepository.findById(id)
+				.orElseThrow(() -> new ResourceNotFoundException("Booking with id " + id + " not found"));
 
-		    if (booking.getStatus() == BookingStatus.CANCELLED) {
-		        throw new IllegalArgumentException(
-		                "Booking is already cancelled");
-		    }
+		if (booking.getStatus() == BookingStatus.CANCELLED) {
+			throw new IllegalArgumentException("Booking is already cancelled");
+		}
 
-		    booking.setStatus(BookingStatus.CANCELLED);
-		    if (booking.getPayment() != null
-		            && booking.getPayment().getPaymentStatus() == PaymentStatus.SUCCESS) {
+		booking.setStatus(BookingStatus.CANCELLED);
+		if (booking.getPayment() != null && booking.getPayment().getPaymentStatus() == PaymentStatus.SUCCESS) {
 
-		        booking.getPayment().setPaymentStatus(PaymentStatus.REFUNDED);
-		    }
-		    
+			booking.getPayment().setPaymentStatus(PaymentStatus.REFUNDED);
+		}
 
-		    Booking cancelledBooking = bookingRepository.save(booking);
+		Booking cancelledBooking = bookingRepository.save(booking);
 
-		    return convertToResponseDto(cancelledBooking);
-		
+		return convertToResponseDto(cancelledBooking);
+
+	}
+
+	private void validateSeatNumber(String seatNumber, Integer totalSeats) {
+
+		if (seatNumber == null || seatNumber.isBlank()) {
+			throw new IllegalArgumentException("Seat number cannot be null or blank");
+		}
+
+		if (!seatNumber.matches("[1-9]\\d*[A-D]")) {
+			throw new IllegalArgumentException("Invalid seat number format. Use format like 1A, 1B, 1C or 1D");
+		}
+
+		String rowPart = seatNumber.substring(0, seatNumber.length() - 1);
+		int rowNumber = Integer.parseInt(rowPart);
+
+		char seatLetter = seatNumber.charAt(seatNumber.length() - 1);
+
+		int seatIndex;
+
+		switch (seatLetter) {
+		case 'A':
+			seatIndex = 1;
+			break;
+		case 'B':
+			seatIndex = 2;
+			break;
+		case 'C':
+			seatIndex = 3;
+			break;
+		case 'D':
+			seatIndex = 4;
+			break;
+		default:
+			throw new IllegalArgumentException("Invalid seat letter");
+		}
+
+		int seatNumberValue = (rowNumber - 1) * 4 + seatIndex;
+
+		if (seatNumberValue > totalSeats) {
+			throw new IllegalArgumentException("Seat " + seatNumber + " does not exist for this flight");
+		}
 	}
 }
