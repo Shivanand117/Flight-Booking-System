@@ -235,3 +235,18 @@ This repository is an educational demonstration, not a production airline bookin
 <div align="center">
   <sub>Built as a full-stack learning project.</sub>
 </div>
+
+
+## Live Deployment
+
+**Frontend (Live Website):**  
+https://flight-booking-frontend-de78.onrender.com/
+
+**Backend (Spring Boot REST API):**  
+https://flight-booking-system-1-xkpd.onrender.com/flights
+
+The frontend is deployed on Render, the backend is
+built with Spring Boot, and PostgreSQL is hosted on Neon.
+
+Note: This project uses sample flight data and simulated
+payments for demonstration purposes.
